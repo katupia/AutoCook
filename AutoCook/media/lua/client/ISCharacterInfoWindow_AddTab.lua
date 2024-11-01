@@ -30,21 +30,16 @@ function addCharacterPageTab(tabName,pageType)
     function ISCharacterInfoWindow:SaveLayout(name, layout)
         upperLayer_ISCharacterInfoWindow_SaveLayout(self,name,layout)
         
-        local addTabName = false
-        local subSelf = self[viewName]
-        if subSelf and subSelf.parent == self.panel then
-            addTabName = true
-            if subSelf == self.panel:getActiveView() then
+        local tabs = {}
+        if self[viewName].parent == self.panel then
+            table.insert(tabs, tabName)
+            if self[viewName] == self.panel:getActiveView() then
                 layout.current = tabName
             end
         end
-        if addTabName then
-            if not layout.tabs then
-                layout.tabs = tabName 
-            else
-                layout.tabs = layout.tabs .. ',' .. tabName
-            end
-        end
+        if not layout.tabs then layout.tabs = "" end
+        layout.tabs = layout.tabs .. table.concat(tabs, ',')
     end
+
 end
 
