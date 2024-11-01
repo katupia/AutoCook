@@ -2,7 +2,10 @@ require "ISContinue"
 
 AutoCook = {}
 AutoCook.Verbose = false
-AutoCook.MaxSpices = -1
+AutoCook.MaxSpices = 0
+AutoCook.SmartSpices = true
+AutoCook.SmartSpicesMaxWeight = 84
+AutoCook.SmartSpicesMinWeight = 76
 AutoCook.MaxDuplicate = 2
 AutoCook.NutritionistMinWeight = 76.5
 AutoCook.NutritionistMaxWeight = 82.5
@@ -15,6 +18,7 @@ AutoCook.GainProtein = -2
 AutoCook.GainHunger = 10
 AutoCook.AvailableMinProteinItem = 3.001 --allows to continue overproteining slightly with vegetables when overproteined.
 AutoCook.CookMode = 0--0 = variety & freshness(default)/ 1=loose weight / 2=gain weight / 3=nutritionnist(weight balance & strength optim)
+AutoCook.UseRotten = true
 
 function AutoCook:stopAutoCook()
     if AutoCook.Verbose then print ("AutoCook:stopAutoCook") end
@@ -83,6 +87,25 @@ function AutoCook:returnItemsToOriginalContainer()
         end
     end
 end
+
+function AutoCook:allowSpice()
+    -- if SmartSpices enabled, use all spices on risk of underweight, none when risk of overweight, else as set
+    if AutoCook.SmartSpices then
+        local nutrition = self.playerObj:getNutrition();
+        local playerWeight = nutrition:getWeight();
+        if (playerWeight > AutoCook.SmartSpicesMaxWeight - 1 and nutrition:isIncWeight()) or playerWeight > AutoCook.SmartSpicesMaxWeight then
+            -- player is tending to or is overweight
+            return false
+        elseif (playerWeight < AutoCook.SmartSpicesMinWeight + 1 and nutrition:isDecWeight()) or playerWeight < AutoCook.SmartSpicesMinWeight then
+            -- player is tending to or is underweight
+            return true
+        end
+    end
+        
+     --allow to select max spice number
+    return (AutoCook.MaxSpices < 0 or self.nbSpices < AutoCook.MaxSpices)
+end
+
 function AutoCook:chooseItem(items, baseItem, recipe)
     if AutoCook.Verbose then print ("AutoCook:chooseItem "..baseItem:getName()) end
     if not items or items:size() == 0 then--if there is no more available items stop auto cook
@@ -100,7 +123,8 @@ function AutoCook:chooseItem(items, baseItem, recipe)
         if instanceof(item, "Food")--ensure we do not also apply survivor / carpentry / .. recipes ?
            and not self.playerObj:isKnownPoison(item)--if it is a poison and we know it: avoid
            and (recipe:isCookable() or not item:isbDangerousUncooked() or item:isCooked())--do not add dangerousuncook items on a recipe than cannot be cooked
-           and (AutoCook.MaxSpices < 0 or not item:isSpice() or self.nbSpices < AutoCook.MaxSpices) then--allow to select max spice number
+           and (not item:isSpice() or self:allowSpice(item)) -- check if spice is allowed
+           and (AutoCook.UseRotten or not item:isRotten()) then --only use rotten if enabled
             item = self:filterFood(item)
             if item then
                 local itemName = item:getFullType()
@@ -152,7 +176,7 @@ function AutoCook:filterFood(item)
     local nutrition = self.playerObj:getNutrition();
     local playerWeight = nutrition:getWeight();
     
-    if playerWeight > AutoCook.NutritionistMinWeight and AutoCook.CookMode == 4 then
+    if playerWeight > AutoCook.NutritionistMinWeight and AutoCook.CookMode == 5 then
         local refLipids = 0
         local refCarbs = 0
         if nutrition:getLipids() > 0 then refLipids = item:getLipids() end
@@ -251,6 +275,22 @@ function AutoCook:selectForStrength(leftItem, rightItem, playerObj, baseItem)
     end
 end
 
+function AutoCook:selectForLeftovers(leftItem, rightItem)
+    if AutoCook.Verbose then print ("AutoCook:selectForLeftovers item comparison") end
+    local age = leftItem:getAge();
+    local agingDelta = leftItem:getOffAge() - age;
+    local rottingDelta = leftItem:getOffAgeMax() - age;
+            
+    local newAge = rightItem:getAge();
+    local newAgingDelta = rightItem:getOffAge() - newAge;       -- time left until stale 
+    local newRottingDelta = rightItem:getOffAgeMax() - newAge;  -- time left until rotten
+    --we take the ingredient that is the closest to rotting
+    if newRottingDelta > rottingDelta then
+        return rightItem
+    end
+    return leftItem
+end
+
 function AutoCook:selectDefault(leftItem, rightItem)
     if AutoCook.Verbose then print ("AutoCook:selectDefault item comparison") end
     local age = leftItem:getAge();
@@ -284,7 +324,8 @@ end
 function AutoCook:selectPreferedFood(leftItem, rightItem)
     if AutoCook.CookMode == 2 then return self:selectForWeightLoss(leftItem, rightItem) end
     if AutoCook.CookMode == 3 then return self:selectForWeightGain(leftItem, rightItem) end
-    if AutoCook.CookMode == 4 then return self:selectNutritionist(leftItem, rightItem) end
+    if AutoCook.CookMode == 4 then return self:selectForLeftovers(leftItem, rightItem) end
+    if AutoCook.CookMode == 5 then return self:selectNutritionist(leftItem, rightItem) end
     return self:selectDefault(leftItem, rightItem)--0/1/any
 end
 
