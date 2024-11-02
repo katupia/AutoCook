@@ -8,10 +8,14 @@ local FONT_HGT_SMALL = getTextManager():getFontHeight(UIFont.Small)
 local FONT_HGT_MEDIUM = getTextManager():getFontHeight(UIFont.Medium)
 
 function ISCharacterCook:initialise()
+    if AutoCook.Verbose then print ("ISCharacterCook:initialise") end
     ISPanelJoypad.initialise(self);
 end
 
 function ISCharacterCook:createChildren()
+    if AutoCook.Verbose then print ("ISCharacterCook:createChildren") end
+    AutoCook.init(self, self.char)
+
     self.textY = 0
     --prebuild some stuff
     self.inputX = self:getWidth() / 2
@@ -215,10 +219,9 @@ function ISCharacterCook:createCookingModeCombo()
     self.isNutritionist = isNutritionist;
     if isNutritionist then
         width = addComboOption(combo,"UI_AutoCookNutritionist",width)
-        combo.selected = 5
-    else
-        combo.selected = 1
     end
+
+    combo.selected = AutoCook.CookMode
     combo:setWidth(width+30)
     if self.comboCookMode then self:removeChild(self.comboCookMode) end
     self:addChild(combo)
@@ -229,6 +232,7 @@ end
 
 function ISCharacterCook:onComboSelectCookMode()
     AutoCook.CookMode = self.comboCookMode.selected
+    self.char:getModData().AutoCook.CookMode = AutoCook.CookMode
 end
 
 function ISCharacterCook:createRottenTick()
@@ -248,6 +252,7 @@ end
 
 function ISCharacterCook:onChangeRottenMode(index, isEnabled)
     AutoCook.UseRotten = isEnabled
+    self.char:getModData().AutoCook.UseRotten = AutoCook.UseRotten
 end
 
 function ISCharacterCook:createDuplicateInput()
@@ -299,6 +304,7 @@ function ISCharacterCook:onDuplicatesInput(button)
     if button.internal == "MINUS" and AutoCook.MaxDuplicate > 1 then
         AutoCook.MaxDuplicate = AutoCook.MaxDuplicate - 1;
     end
+    self.char:getModData().AutoCook.MaxDuplicate = AutoCook.MaxDuplicate
 
     self.duplicatesInput:setText(tostring(AutoCook.MaxDuplicate));
 end
@@ -352,6 +358,7 @@ function ISCharacterCook:onSpiceInput(button)
     if button.internal == "MINUS" and AutoCook.MaxSpices >= 0 then
         AutoCook.MaxSpices = AutoCook.MaxSpices - 1;
     end
+    self.char:getModData().AutoCook.MaxSpices = AutoCook.MaxSpices
 
     if AutoCook.MaxSpices < 0 then
         self.spiceInput:setText("All");
@@ -377,6 +384,7 @@ end
 
 function ISCharacterCook:onChangeSpiceMode(index, isEnabled)
     AutoCook.SmartSpices = isEnabled
+    self.char:getModData().AutoCook.SmartSpices = AutoCook.SmartSpices
 end
 
 function ISCharacterCook:ensureVisible()

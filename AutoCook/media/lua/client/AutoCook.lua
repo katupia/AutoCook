@@ -20,6 +20,30 @@ AutoCook.AvailableMinProteinItem = 3.001 --allows to continue overproteining sli
 AutoCook.CookMode = 1 --1 = variety & freshness(default)/ 2=leftovers / 3=loose weight / 4=gain weight / 5=nutritionist(weight balance & strength optim)
 AutoCook.UseRotten = true
 
+function AutoCook:init(player)
+    if player:getModData().AutoCook == nil then
+        if AutoCook.Verbose then print ("AutoCook:init: creating new modData") end
+        player:getModData().AutoCook = {}
+        local defaultCookMode = AutoCook.CookMode
+        if player:HasTrait("Nutritionist") or player:HasTrait("Nutritionist2") then
+            defaultCookMode = 5
+            AutoCook.CookMode = 5
+        end
+        player:getModData().AutoCook.CookMode = defaultCookMode
+        player:getModData().AutoCook.MaxSpices = AutoCook.MaxSpices
+        player:getModData().AutoCook.SmartSpices = AutoCook.SmartSpices
+        player:getModData().AutoCook.MaxDuplicate = AutoCook.MaxDuplicate
+        player:getModData().AutoCook.UseRotten = AutoCook.UseRotten
+    else
+        if AutoCook.Verbose then print ("AutoCook:init: loading modData") end
+        AutoCook.CookMode = player:getModData().AutoCook.CookMode
+        AutoCook.MaxSpices = player:getModData().AutoCook.MaxSpices
+        AutoCook.SmartSpices = player:getModData().AutoCook.SmartSpices
+        AutoCook.MaxDuplicate = player:getModData().AutoCook.MaxDuplicate
+        AutoCook.UseRotten = player:getModData().AutoCook.UseRotten
+    end
+end
+
 function AutoCook:stopAutoCook()
     if AutoCook.Verbose then print ("AutoCook:stopAutoCook") end
     if self.returnToContainer then
