@@ -1,5 +1,6 @@
 UI_EN = {
     UI_Cook = "Cook",
+    UI_AutoCookAll = "All",
     UI_CookPanel = "Choose your auto cook preferences. <LINE>Have you tried with Nutritionist trait ?",
     UI_AutoCookMode = "Cooking diet: ",
     UI_AutoCookUseRotten = "Use Rotten Ingredients",
