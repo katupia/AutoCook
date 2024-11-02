@@ -318,17 +318,16 @@ function ISCharacterCook:createSpiceInput()
 	self:addChild(self.spiceInputLabel)
 
     -- copy from ISFitnessUI
-    local text = "N/A"
-    if AutoCook.MaxSpices then
-        text = tostring(AutoCook.MaxSpices)
-    end
     if self.spiceInput then self:removeChild(self.spiceInput) end
-    self.spiceInput = ISTextEntryBox:new(text, self.inputX, self.textY + 2, 55, FONT_HGT_SMALL + 2 * 2)
+    self.spiceInput = ISTextEntryBox:new("N/A", self.inputX, self.textY + 2, 55, FONT_HGT_SMALL + 2 * 2)
 	self.spiceInput:initialise();
 	self.spiceInput:instantiate();
 	self.spiceInput.font = UIFont.Medium
 	self.spiceInput:setOnlyNumbers(true);
 	self.spiceInput:setEditable(false);
+    if AutoCook.MaxSpices then
+        self:onSpiceInput(nil)
+    end
 	self:addChild(self.spiceInput)
 
 	-- +/- buttons
@@ -352,16 +351,18 @@ function ISCharacterCook:createSpiceInput()
 end
 
 function ISCharacterCook:onSpiceInput(button)
-    if button.internal == "PLUS" and AutoCook.MaxSpices < 10 then
-        AutoCook.MaxSpices = AutoCook.MaxSpices + 1;
+    if button ~= nil then
+        if button.internal == "PLUS" and AutoCook.MaxSpices < 10 then
+            AutoCook.MaxSpices = AutoCook.MaxSpices + 1;
+        end
+        if button.internal == "MINUS" and AutoCook.MaxSpices >= 0 then
+            AutoCook.MaxSpices = AutoCook.MaxSpices - 1;
+        end
+        self.char:getModData().AutoCook.MaxSpices = AutoCook.MaxSpices
     end
-    if button.internal == "MINUS" and AutoCook.MaxSpices >= 0 then
-        AutoCook.MaxSpices = AutoCook.MaxSpices - 1;
-    end
-    self.char:getModData().AutoCook.MaxSpices = AutoCook.MaxSpices
 
     if AutoCook.MaxSpices < 0 then
-        self.spiceInput:setText("All");
+        self.spiceInput:setText(getText("UI_AutoCookAll"));
     else
         self.spiceInput:setText(tostring(AutoCook.MaxSpices));
     end
