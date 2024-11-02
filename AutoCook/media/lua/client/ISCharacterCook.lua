@@ -4,11 +4,34 @@ require "AutoCook"
 
 ISCharacterCook = ISPanelJoypad:derive("ISCharacterCook");
 
+local FONT_HGT_SMALL = getTextManager():getFontHeight(UIFont.Small)
+local FONT_HGT_MEDIUM = getTextManager():getFontHeight(UIFont.Medium)
+
 function ISCharacterCook:initialise()
+    if AutoCook.Verbose then print ("ISCharacterCook:initialise") end
     ISPanelJoypad.initialise(self);
 end
 
 function ISCharacterCook:createChildren()
+    if AutoCook.Verbose then print ("ISCharacterCook:createChildren") end
+    AutoCook.init(self, self.char)
+
+    self.textY = 0
+    --prebuild some stuff
+    self.inputX = self:getWidth() / 2
+
+    -- Cooking mode and ingredients
+    self:createCookingModeCombo()
+    self.textY = self.textY + 5
+    self:createDuplicateInput()
+    self:createRottenTick()
+    self.textY = self.textY + 15
+
+    -- Spices
+    self:createSpiceInput()
+    self:createSpiceTick()
+    self.textY = self.textY + 10
+
     self:setScrollChildren(true)
     self:addScrollBars()
 end
@@ -22,13 +45,13 @@ function ISCharacterCook:prerender()
     self:setStencilRect(0, 0, self.width, self.height)
     
     local isNutritionist = self.char:HasTrait("Nutritionist") or self.char:HasTrait("Nutritionist2");
-    if isNutritionist ~= self.isNutritionist then self:createComboMode() end--recreate combo list on change
+    if isNutritionist ~= self.isNutritionist then self:createChildren() end--recreate combo list on change
 end
 
 function ISCharacterCook:addTextLine(str,textX, textY, maxTextWidth)
     local txt = "- "..str;
     self:drawText(txt, textX, textY, 1, 1, 1, 1, UIFont.Small)
-    txtWidth = getTextManager():MeasureStringX(UIFont.Small, txt);
+    local txtWidth = getTextManager():MeasureStringX(UIFont.Small, txt);
     if txtWidth > maxTextWidth then maxTextWidth = txtWidth end
     return maxTextWidth;
 end
@@ -37,16 +60,10 @@ function ISCharacterCook:render()
     if not self.char:getModData() then self:clearStencilRect(); return end
     ------------------------------------
     
-    local textX = 20
-    local fontHeight = getTextManager():getFontHeight(UIFont.Small)
-    local textY = fontHeight
+    local textX = self.textX
+    local fontHeight = FONT_HGT_SMALL
+    local textY = self.textY
     local maxTextWidth = 0
-
-    local preText = getText("UI_AutoCookMode").." "
-    self:drawText(preText, textX, textY, 1, 1, 1, 1, UIFont.Medium)
-    local txtWidth = getTextManager():MeasureStringX(UIFont.Medium, preText);
-    if txtWidth > maxTextWidth then maxTextWidth = txtWidth end
-    textY = textY + getTextManager():getFontHeight(UIFont.Medium)
 
     local nutrition = self.char:getNutrition()
     
@@ -132,7 +149,7 @@ function ISCharacterCook:render()
     -------------------------------
     textY = textY + fontHeight--more satisfying with an empty line
 
-    local widthRequired = textX * 2 + maxTextWidth;
+    local widthRequired = self.textX * 2 + maxTextWidth;
     if widthRequired > self:getWidth() then
         self:setWidthAndParentWidth(widthRequired);
     end
@@ -152,7 +169,7 @@ function ISCharacterCook:onMouseWheel(del)
     return true
 end
 
-function ISCharacterCook:new (x, y, width, height, playerNum)
+function ISCharacterCook:new(x, y, width, height, playerNum)
     local o = {};
     o = ISPanelJoypad:new(x, y, width, height);
     setmetatable(o, self);
@@ -160,8 +177,9 @@ function ISCharacterCook:new (x, y, width, height, playerNum)
     o.playerNum = playerNum
     o.char = getSpecificPlayer(playerNum);
     o:noBackground();
-    --prebuild some stuff
-    o:createComboMode();
+    o.textX = 20
+    o.inputX = 300
+    o.textY = 0
     
     ISCharacterCook.instance = o;
    return o;
@@ -175,44 +193,199 @@ local function addComboOption(combo,name,previousWidth)
     return txtWidth
 end
 
-local function getCookModeText()
-    
-end
+function ISCharacterCook:createCookingModeCombo()
+    local comboHeight = FONT_HGT_MEDIUM
+    self.textY = self.textY + FONT_HGT_SMALL
 
-function ISCharacterCook:createComboMode()
-    
-    local FONT_HGT_MEDIUM = getTextManager():getFontHeight(UIFont.Medium)
-    local comboOffset = 3 * 2
-    local comboHeight = FONT_HGT_MEDIUM + comboOffset
-    local fontHeight = getTextManager():getFontHeight(UIFont.Small)
-    local textX = 20
-    local textY = fontHeight
-    
+    -- create label
+    if self.cookModeLabel then self:removeChild(self.cookModeLabel) end
+    self.cookModeLabel = ISLabel:new(self.textX, self.textY, FONT_HGT_MEDIUM, getText("UI_AutoCookMode"), 1, 1, 1, 1, UIFont.Medium, true)
+	self.cookModeLabel:initialise();
+	self.cookModeLabel:instantiate();
+	self:addChild(self.cookModeLabel)
+
     local preText = getText("UI_AutoCookMode").." "
-    local preTextWidth = getTextManager():MeasureStringX(UIFont.Medium, preText);
+    local preTextWidth = getTextManager():MeasureStringX(UIFont.Medium, preText); -- could be label.x
     
-    local combo = ISComboBox:new(textX+preTextWidth, fontHeight-comboOffset, 10, comboHeight, self, self.onComboSelectCookMode)
+    -- create combo box
+    local combo = ISComboBox:new(self.inputX, self.textY, 10, comboHeight, self, self.onComboSelectCookMode)
     --combo.noSelectionText = "Select Cook Mode"
     local width = 0;
     width = addComboOption(combo,"UI_AutoCookFreshness",width)
+    width = addComboOption(combo,"UI_AutoCookLeftovers",width)
     width = addComboOption(combo,"UI_AutoCookWeightLoss",width)
     width = addComboOption(combo,"UI_AutoCookWeightGain",width)
     local isNutritionist = self.char:HasTrait("Nutritionist") or self.char:HasTrait("Nutritionist2");
     self.isNutritionist = isNutritionist;
     if isNutritionist then
         width = addComboOption(combo,"UI_AutoCookNutritionist",width)
-        combo.selected = 4
-    else
-        combo.selected = 1
     end
+
+    combo.selected = AutoCook.CookMode
     combo:setWidth(width+30)
     if self.comboCookMode then self:removeChild(self.comboCookMode) end
     self:addChild(combo)
     self.comboCookMode = combo
+
+    self.textY = self.comboCookMode:getBottom()
 end
 
 function ISCharacterCook:onComboSelectCookMode()
     AutoCook.CookMode = self.comboCookMode.selected
+    self.char:getModData().AutoCook.CookMode = AutoCook.CookMode
+end
+
+function ISCharacterCook:createRottenTick()
+    local smartOptionText = getText("UI_AutoCookUseRotten")
+    local txtWidth = getTextManager():MeasureStringX(UIFont.Medium, smartOptionText)
+    local tickBoxHeight = FONT_HGT_MEDIUM
+    if self.rottenTickBox then self:removeChild(self.rottenTickBox) end
+    self.rottenTickBox = ISTickBox:new(self.textX, self.textY, txtWidth, tickBoxHeight, "rottenTick", self, self.onChangeRottenMode);
+    self.rottenTickBox:initialise()
+    self:addChild(self.rottenTickBox)
+    self.rottenTickBox:addOption(smartOptionText)
+    self.rottenTickBox:setSelected(1, AutoCook.UseRotten)
+    self.rottenTickBox.tooltip = getText("UI_AutoCookUseRottenTooltip")
+
+    self.textY = self.rottenTickBox:getBottom()
+end
+
+function ISCharacterCook:onChangeRottenMode(index, isEnabled)
+    AutoCook.UseRotten = isEnabled
+    self.char:getModData().AutoCook.UseRotten = AutoCook.UseRotten
+end
+
+function ISCharacterCook:createDuplicateInput()
+    -- create label
+    if self.duplicatesInputLabel then self:removeChild(self.duplicatesInputLabel) end
+    self.duplicatesInputLabel = ISLabel:new(self.textX, self.textY, FONT_HGT_SMALL, getText("UI_AutoCookMaxDuplicate"), 1, 1, 1, 1, UIFont.Small, true)
+	self.duplicatesInputLabel:initialise();
+	self.duplicatesInputLabel:instantiate();
+	self:addChild(self.duplicatesInputLabel)
+
+    -- copy from ISFitnessUI
+    local dupText = "N/A"
+    if AutoCook.MaxDuplicate then
+        dupText = tostring(AutoCook.MaxDuplicate)
+    end
+    if self.duplicatesInput then self:removeChild(self.duplicatesInput) end
+    self.duplicatesInput = ISTextEntryBox:new(dupText, self.inputX, self.textY - 2, 55, FONT_HGT_SMALL + 2 * 2)
+	self.duplicatesInput:initialise();
+	self.duplicatesInput:instantiate();
+	self.duplicatesInput.font = UIFont.Medium
+	self.duplicatesInput:setOnlyNumbers(true);
+	self.duplicatesInput:setEditable(false);
+	self:addChild(self.duplicatesInput)
+
+	-- +/- buttons
+    if self.duplicatesInputPlus then self:removeChild(self.duplicatesInputPlus) end
+	self.duplicatesInputPlus = ISButton:new(self.duplicatesInput.x + self.duplicatesInput:getWidth() + 2, self.duplicatesInput.y, self.duplicatesInput:getHeight(), self.duplicatesInput:getHeight(), "+", self, self.onDuplicatesInput)
+	self.duplicatesInputPlus:initialise();
+	self.duplicatesInputPlus:instantiate();
+	self.duplicatesInputPlus.internal = "PLUS";
+	self:addChild(self.duplicatesInputPlus)
+	
+    if self.duplicatesInputMinus then self:removeChild(self.duplicatesInputMinus) end
+	self.duplicatesInputMinus = ISButton:new(self.duplicatesInputPlus.x + self.duplicatesInputPlus:getWidth() + 1, self.duplicatesInput.y, self.duplicatesInput:getHeight(), self.duplicatesInput:getHeight(), "-", self, self.onDuplicatesInput)
+	self.duplicatesInputMinus:initialise();
+	self.duplicatesInputMinus:instantiate();
+	self.duplicatesInputMinus.internal = "MINUS";
+	self:addChild(self.duplicatesInputMinus)
+
+	self:setHeight(self.duplicatesInput:getBottom())
+
+    self.textY = self.duplicatesInput:getBottom()
+end
+
+function ISCharacterCook:onDuplicatesInput(button)
+    if button.internal == "PLUS" and AutoCook.MaxDuplicate < 6 then
+        AutoCook.MaxDuplicate = AutoCook.MaxDuplicate + 1;
+    end
+    if button.internal == "MINUS" and AutoCook.MaxDuplicate > 1 then
+        AutoCook.MaxDuplicate = AutoCook.MaxDuplicate - 1;
+    end
+    self.char:getModData().AutoCook.MaxDuplicate = AutoCook.MaxDuplicate
+
+    self.duplicatesInput:setText(tostring(AutoCook.MaxDuplicate));
+end
+
+function ISCharacterCook:createSpiceInput()
+    -- create label
+    if self.spiceInputLabel then self:removeChild(self.spiceInputLabel) end
+    self.spiceInputLabel = ISLabel:new(self.textX, self.textY, FONT_HGT_MEDIUM, getText("UI_AutoCookMaxSpices"), 1, 1, 1, 1, UIFont.Medium, true)
+	self.spiceInputLabel:initialise();
+	self.spiceInputLabel:instantiate();
+	self:addChild(self.spiceInputLabel)
+
+    -- copy from ISFitnessUI
+    if self.spiceInput then self:removeChild(self.spiceInput) end
+    self.spiceInput = ISTextEntryBox:new("N/A", self.inputX, self.textY + 2, 55, FONT_HGT_SMALL + 2 * 2)
+	self.spiceInput:initialise();
+	self.spiceInput:instantiate();
+	self.spiceInput.font = UIFont.Medium
+	self.spiceInput:setOnlyNumbers(true);
+	self.spiceInput:setEditable(false);
+    if AutoCook.MaxSpices then
+        self:onSpiceInput(nil)
+    end
+	self:addChild(self.spiceInput)
+
+	-- +/- buttons
+    if self.spiceInputPlus then self:removeChild(self.spiceInputPlus) end
+	self.spiceInputPlus = ISButton:new(self.spiceInput.x + self.spiceInput:getWidth() + 2, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "+", self, self.onSpiceInput)
+	self.spiceInputPlus:initialise();
+	self.spiceInputPlus:instantiate();
+	self.spiceInputPlus.internal = "PLUS";
+	self:addChild(self.spiceInputPlus)
+	
+    if self.spiceInputMinus then self:removeChild(self.spiceInputMinus) end
+	self.spiceInputMinus = ISButton:new(self.spiceInputPlus.x + self.spiceInputPlus:getWidth() + 1, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "-", self, self.onSpiceInput)
+	self.spiceInputMinus:initialise();
+	self.spiceInputMinus:instantiate();
+	self.spiceInputMinus.internal = "MINUS";
+	self:addChild(self.spiceInputMinus)
+
+	self:setHeight(self.spiceInput:getBottom())
+
+    self.textY = self.spiceInput:getBottom()
+end
+
+function ISCharacterCook:onSpiceInput(button)
+    if button ~= nil then
+        if button.internal == "PLUS" and AutoCook.MaxSpices < 10 then
+            AutoCook.MaxSpices = AutoCook.MaxSpices + 1;
+        end
+        if button.internal == "MINUS" and AutoCook.MaxSpices >= 0 then
+            AutoCook.MaxSpices = AutoCook.MaxSpices - 1;
+        end
+        self.char:getModData().AutoCook.MaxSpices = AutoCook.MaxSpices
+    end
+
+    if AutoCook.MaxSpices < 0 then
+        self.spiceInput:setText(getText("UI_AutoCookAll"));
+    else
+        self.spiceInput:setText(tostring(AutoCook.MaxSpices));
+    end
+end
+
+function ISCharacterCook:createSpiceTick()
+    if self.spiceTickBox then self:removeChild(self.spiceTickBox) end
+    local smartOptionText = getText("UI_AutoCookSmartSpices")
+    local txtWidth = getTextManager():MeasureStringX(UIFont.Medium, smartOptionText)
+    local tickBoxHeight = FONT_HGT_MEDIUM
+    self.spiceTickBox = ISTickBox:new(self.textX, self.textY, txtWidth, tickBoxHeight, "spiceTick", self, self.onChangeSpiceMode);
+    self.spiceTickBox:initialise()
+    self:addChild(self.spiceTickBox)
+    self.spiceTickBox:addOption(smartOptionText)
+    self.spiceTickBox:setSelected(1, AutoCook.SmartSpices)
+    self.spiceTickBox.tooltip = getText("UI_AutoCookSmartSpicesTooltip")
+
+    self.textY = self.spiceTickBox:getBottom()
+end
+
+function ISCharacterCook:onChangeSpiceMode(index, isEnabled)
+    AutoCook.SmartSpices = isEnabled
+    self.char:getModData().AutoCook.SmartSpices = AutoCook.SmartSpices
 end
 
 function ISCharacterCook:ensureVisible()
