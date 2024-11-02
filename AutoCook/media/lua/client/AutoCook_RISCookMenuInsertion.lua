@@ -1,5 +1,10 @@
 require "AutoCook"
 
+--we can do that but other mods will be broken.
+if ActiveMods.getById("currentGame"):isModActive("AuthenticZStudderFix") then
+    require('ISUI/InventoryPaneContextMenuFix')
+end
+
 --hook the ISInventoryPaneContextMenu.doEvorecipeMenu to install our button
 local genuine_ISInventoryPaneContextMenu_doEvorecipeMenu = ISInventoryPaneContextMenu.doEvorecipeMenu
 function ISInventoryPaneContextMenu.doEvorecipeMenu(context, items, player, evorecipe, baseItem, containerList)
