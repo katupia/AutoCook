@@ -17,7 +17,7 @@ AutoCook.GainLipids = 3
 AutoCook.GainProtein = -2
 AutoCook.GainHunger = 10
 AutoCook.AvailableMinProteinItem = 3.001 --allows to continue overproteining slightly with vegetables when overproteined.
-AutoCook.CookMode = 0--0 = variety & freshness(default)/ 1=loose weight / 2=gain weight / 3=nutritionnist(weight balance & strength optim)
+AutoCook.CookMode = 1 --1 = variety & freshness(default)/ 2=leftovers / 3=loose weight / 4=gain weight / 5=nutritionist(weight balance & strength optim)
 AutoCook.UseRotten = true
 
 function AutoCook:stopAutoCook()
@@ -284,11 +284,16 @@ function AutoCook:selectForLeftovers(leftItem, rightItem)
     local newAge = rightItem:getAge();
     local newAgingDelta = rightItem:getOffAge() - newAge;       -- time left until stale 
     local newRottingDelta = rightItem:getOffAgeMax() - newAge;  -- time left until rotten
-    --we take the ingredient that is the closest to rotting
-    if newRottingDelta > rottingDelta then
+
+    -- take the ingredient that is the closest to rotting
+    if newRottingDelta < rottingDelta then
         return rightItem
+    elseif newRottingDelta > rottingDelta then
+        return leftItem
+    else
+        -- if ingredients same age, prefer smaller "leftover" stacks
+        return self:selectForWeightLoss(leftItem, rightItem);
     end
-    return leftItem
 end
 
 function AutoCook:selectDefault(leftItem, rightItem)
@@ -322,9 +327,9 @@ function AutoCook:selectNutritionist(leftItem, rightItem)
 end
 
 function AutoCook:selectPreferedFood(leftItem, rightItem)
-    if AutoCook.CookMode == 2 then return self:selectForWeightLoss(leftItem, rightItem) end
-    if AutoCook.CookMode == 3 then return self:selectForWeightGain(leftItem, rightItem) end
-    if AutoCook.CookMode == 4 then return self:selectForLeftovers(leftItem, rightItem) end
+    if AutoCook.CookMode == 2 then return self:selectForLeftovers(leftItem, rightItem) end
+    if AutoCook.CookMode == 3 then return self:selectForWeightLoss(leftItem, rightItem) end
+    if AutoCook.CookMode == 4 then return self:selectForWeightGain(leftItem, rightItem) end
     if AutoCook.CookMode == 5 then return self:selectNutritionist(leftItem, rightItem) end
     return self:selectDefault(leftItem, rightItem)--0/1/any
 end

@@ -208,9 +208,9 @@ function ISCharacterCook:createCookingModeCombo()
     --combo.noSelectionText = "Select Cook Mode"
     local width = 0;
     width = addComboOption(combo,"UI_AutoCookFreshness",width)
+    width = addComboOption(combo,"UI_AutoCookLeftovers",width)
     width = addComboOption(combo,"UI_AutoCookWeightLoss",width)
     width = addComboOption(combo,"UI_AutoCookWeightGain",width)
-    width = addComboOption(combo,"UI_AutoCookLeftovers",width)
     local isNutritionist = self.char:HasTrait("Nutritionist") or self.char:HasTrait("Nutritionist2");
     self.isNutritionist = isNutritionist;
     if isNutritionist then
@@ -264,7 +264,7 @@ function ISCharacterCook:createDuplicateInput()
         dupText = tostring(AutoCook.MaxDuplicate)
     end
     if self.duplicatesInput then self:removeChild(self.duplicatesInput) end
-    self.duplicatesInput = ISTextEntryBox:new(dupText, self.inputX, self.textY - 2, 30, FONT_HGT_SMALL + 2 * 2)
+    self.duplicatesInput = ISTextEntryBox:new(dupText, self.inputX, self.textY - 2, 55, FONT_HGT_SMALL + 2 * 2)
 	self.duplicatesInput:initialise();
 	self.duplicatesInput:instantiate();
 	self.duplicatesInput.font = UIFont.Medium
@@ -274,7 +274,7 @@ function ISCharacterCook:createDuplicateInput()
 
 	-- +/- buttons
     if self.duplicatesInputPlus then self:removeChild(self.duplicatesInputPlus) end
-	self.duplicatesInputPlus = ISButton:new(self.duplicatesInput.x + self.duplicatesInput:getWidth() + 5, self.duplicatesInput.y, self.duplicatesInput:getHeight(), self.duplicatesInput:getHeight(), "+", self, self.onDuplicatesInput)
+	self.duplicatesInputPlus = ISButton:new(self.duplicatesInput.x + self.duplicatesInput:getWidth() + 2, self.duplicatesInput.y, self.duplicatesInput:getHeight(), self.duplicatesInput:getHeight(), "+", self, self.onDuplicatesInput)
 	self.duplicatesInputPlus:initialise();
 	self.duplicatesInputPlus:instantiate();
 	self.duplicatesInputPlus.internal = "PLUS";
@@ -317,7 +317,7 @@ function ISCharacterCook:createSpiceInput()
         text = tostring(AutoCook.MaxSpices)
     end
     if self.spiceInput then self:removeChild(self.spiceInput) end
-    self.spiceInput = ISTextEntryBox:new(text, self.inputX, self.textY + 2, 30, FONT_HGT_SMALL + 2 * 2)
+    self.spiceInput = ISTextEntryBox:new(text, self.inputX, self.textY + 2, 55, FONT_HGT_SMALL + 2 * 2)
 	self.spiceInput:initialise();
 	self.spiceInput:instantiate();
 	self.spiceInput.font = UIFont.Medium
@@ -327,14 +327,14 @@ function ISCharacterCook:createSpiceInput()
 
 	-- +/- buttons
     if self.spiceInputPlus then self:removeChild(self.spiceInputPlus) end
-	self.spiceInputPlus = ISButton:new(self.spiceInput.x + self.spiceInput:getWidth() + 5, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "+", self, self.onSpiceInput)
+	self.spiceInputPlus = ISButton:new(self.spiceInput.x + self.spiceInput:getWidth() + 2, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "+", self, self.onSpiceInput)
 	self.spiceInputPlus:initialise();
 	self.spiceInputPlus:instantiate();
 	self.spiceInputPlus.internal = "PLUS";
 	self:addChild(self.spiceInputPlus)
 	
     if self.spiceInputMinus then self:removeChild(self.spiceInputMinus) end
-	self.spiceInputMinus = ISButton:new(self.spiceInputPlus.x + self.spiceInputPlus:getWidth() + 2, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "-", self, self.onSpiceInput)
+	self.spiceInputMinus = ISButton:new(self.spiceInputPlus.x + self.spiceInputPlus:getWidth() + 1, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "-", self, self.onSpiceInput)
 	self.spiceInputMinus:initialise();
 	self.spiceInputMinus:instantiate();
 	self.spiceInputMinus.internal = "MINUS";
