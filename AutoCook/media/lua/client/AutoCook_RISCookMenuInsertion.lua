@@ -24,3 +24,4 @@ function ISInventoryPaneContextMenu.doEvorecipeMenu(context, items, player, evor
     end
 end
 
+--FIXME right clicking with only closed but valid cans will not invoke this event

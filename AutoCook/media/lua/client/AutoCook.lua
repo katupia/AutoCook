@@ -19,8 +19,12 @@ AutoCook.GainHunger = 10
 AutoCook.AvailableMinProteinItem = 3.001 --allows to continue overproteining slightly with vegetables when overproteined.
 AutoCook.CookMode = 1 --1 = variety & freshness(default)/ 2=leftovers / 3=loose weight / 4=gain weight / 5=nutritionist(weight balance & strength optim)
 AutoCook.UseRotten = true
+AutoCook.OpenCans = true
 
 function AutoCook:init(player)
+    if player == nil or player:getModData() == nil then
+       return 
+    end
     if player:getModData().AutoCook == nil then
         if AutoCook.Verbose then print ("AutoCook:init: creating new modData") end
         player:getModData().AutoCook = {}
@@ -54,6 +58,71 @@ function AutoCook:stopAutoCook()
     end
 end
 
+function AutoCook:getNearbyClosedCansForRecipe(recipe, containers)
+    if AutoCook.Verbose then print ("AutoCook:getNearbyCansForRecipe") end
+    if containers == nil then
+        print("ERROR! Containers was nil..")
+        return
+    end
+    local result = {}
+    -- check all recipe items that end with "Open" and return all available in containers
+    for i=1,recipe:getPossibleItems():size() do
+        local name = recipe:getPossibleItems():get(i-1):getName()
+        local ending = "Open"
+        if name:sub(-#ending) == ending then 
+            name = name:sub(1, -#ending - 1) 
+            for j=1, containers:size() do
+                local container = containers:get(j-1)
+                local allClosedCans = container:getAllTypeRecurse(name)
+                for h=1,allClosedCans:size() do
+                    local closedCan = allClosedCans:get(h-1)
+                    table.insert(result, closedCan)
+                end
+                -- some have a second canned variant
+                local allClosedCans2 = container:getAllTypeRecurse(name .. "2")
+                for h=1,allClosedCans2:size() do
+                    local closedCan2 = allClosedCans2:get(h-1)
+                    table.insert(result, closedCan2)
+                end
+            end
+        end
+    end
+    return result
+end
+
+function AutoCook:hasOpener()
+    --TODO?? Would be nice to skip canned search with no opener...
+    return true
+end
+
+function AutoCook:queueGetOpenerAction(player, recipe, containerList)
+    local result = {}
+    local items = RecipeManager.getAvailableItemsNeeded(recipe, player, containerList, nil, nil);
+
+    if items:isEmpty() then return result end;
+    for i=1,items:size() do
+        local item = items:get(i-1)
+        table.insert(result, item)
+        if not recipe:isCanBeDoneFromFloor() then
+            if item:getContainer() ~= player:getInventory() then
+                self:addToReturnContainer(item)
+                ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, item:getContainer(), player:getInventory(), nil));
+            end
+        end
+    end
+    return result
+end
+
+ -- FIXME will break for other languages -> migrate recipe lookup approach from AutoEat
+function AutoCook:getOpenCanRecipe(closedCanItem)
+    local recipeName = "Open "..closedCanItem:getName()
+    local recipe = getScriptManager():getRecipe(recipeName)
+    if recipe == nil then
+        if AutoCook.Verbose then print ("AutoCook:continue ERROR: Recipe not found! " .. recipeName) end
+    end
+    return recipe
+end
+
 function AutoCook:continue()--continue method is used by ISContinue
     if AutoCook.Verbose then print ("AutoCook:continue") end
     if self.addAction and self.addAction.baseItem then
@@ -63,6 +132,19 @@ function AutoCook:continue()--continue method is used by ISContinue
     
     local containerList = ISInventoryPaneContextMenu.getContainers(self.playerObj);
     local items = self.recipe:getItemsCanBeUse(self.playerObj, self.baseItem, containerList);--use vanilla to get the list of potential food items
+    -- if we have an opener, add potiential cans
+    if AutoCook:hasOpener() and AutoCook.OpenCans then
+        local potentialCans = AutoCook:getNearbyClosedCansForRecipe(self.recipe, containerList);
+        for _, can in pairs(potentialCans) do
+            local recipe = AutoCook:getOpenCanRecipe(can)
+            if recipe ~= nil then
+                local recipeValid = RecipeManager.IsRecipeValid(recipe, self.playerObj, nil, containerList)
+                if recipeValid then
+                    items:add(can)
+                end
+            end
+        end
+    end
 
     local usedItem = self:chooseItem(items,self.baseItem,self.recipe);--here is the automat food selection
 
@@ -70,19 +152,36 @@ function AutoCook:continue()--continue method is used by ISContinue
         self:stopAutoCook();
         return
     end
-    
-    --get source items
-    if not self.playerObj:getInventory():contains(usedItem) then -- take the item if it's not in our inventory
-        self:addToReturnContainer(usedItem);
-        ISTimedActionQueue.add(ISInventoryTransferAction:new(self.playerObj, usedItem, usedItem:getContainer(), self.playerObj:getInventory(), nil));
+
+    if usedItem:getType():find("Canned") ~= nil and usedItem:getType():find("Open") == nil then
+         --if closed can is chhosen, add action to get necessary tools and open it
+        local recipe = AutoCook:getOpenCanRecipe(usedItem)
+        if recipe ~= nil then
+            -- transfer item with no return handling, item will not exist after craft
+            ISTimedActionQueue.add(ISInventoryTransferAction:new(self.playerObj, usedItem, usedItem:getContainer(), self.playerObj:getInventory(), nil));
+            -- transfer everything else we need
+            self:queueGetOpenerAction(self.playerObj, recipe, containerList)
+            -- craft the thing
+            ISTimedActionQueue.add(ISCraftAction:new(self.playerObj, usedItem, recipe:getTimeToMake(), recipe, self.playerObj:getInventory(), containerList));
+        else
+            -- something went wrong, cancel action...
+            if AutoCook.Verbose then print ("Auto open can failed! Fix the recipe code!") end
+            return
+        end
+    else
+        --get source items
+        if not self.playerObj:getInventory():contains(usedItem) then -- take the item if it's not in our inventory
+            self:addToReturnContainer(usedItem);
+            ISTimedActionQueue.add(ISInventoryTransferAction:new(self.playerObj, usedItem, usedItem:getContainer(), self.playerObj:getInventory(), nil));
+        end
+        if not self.playerObj:getInventory():contains(self.baseItem) then -- take the base item if it's not in our inventory
+            ISTimedActionQueue.add(ISInventoryTransferAction:new(self.playerObj, self.baseItem, self.baseItem:getContainer(), self.playerObj:getInventory(), nil));
+        end
+
+        --add the timed action to cook the add chosenItem to baseItem in recipe.
+        self.addAction = ISAddItemInRecipe:new(self.playerObj, self.recipe, self.baseItem, usedItem, (70 - self.playerObj:getPerkLevel(Perks.Cooking)))
+        ISTimedActionQueue.add(self.addAction);
     end
-    if not self.playerObj:getInventory():contains(self.baseItem) then -- take the base item if it's not in our inventory
-        ISTimedActionQueue.add(ISInventoryTransferAction:new(self.playerObj, self.baseItem, self.baseItem:getContainer(), self.playerObj:getInventory(), nil));
-    end
-    
-    --add the timed action to cook the add chosenItem to baseItem in recipe.
-    self.addAction = ISAddItemInRecipe:new(self.playerObj, self.recipe, self.baseItem, usedItem, (70 - self.playerObj:getPerkLevel(Perks.Cooking)))
-    ISTimedActionQueue.add(self.addAction);
 
     --add instant timed action to call autocook again once addItem is performed
     ISTimedActionQueue.add(ISContinue:new(self, self.playerObj, 1));
@@ -131,7 +230,7 @@ function AutoCook:allowSpice()
 end
 
 function AutoCook:chooseItem(items, baseItem, recipe)
-    if AutoCook.Verbose then print ("AutoCook:chooseItem "..baseItem:getName()) end
+    if AutoCook.Verbose then print ("AutoCook:chooseItem for recipe ".. recipe:getOriginalname() .. " in " .. baseItem:getName()) end
     if not items or items:size() == 0 then--if there is no more available items stop auto cook
         return nil
     end
@@ -396,3 +495,6 @@ function AutoCook:new(playerObj, recipe, baseItem)
     
     return o;
 end
+
+-- load persisted values on reload script
+AutoCook:init(getPlayer())
