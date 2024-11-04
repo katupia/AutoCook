@@ -21,6 +21,7 @@ AutoCook.CookMode = 1 --1 = variety & freshness(default)/ 2=leftovers / 3=loose 
 AutoCook.UseRotten = true
 AutoCook.AutoCraftIngredients = true
 AutoCook.AutoCraftRecipes = {}
+AutoCook.AutoCraftItemCache = {} --holds created items used for comparison
 
 function AutoCook:init(player)
     if player == nil or player:getModData() == nil then
@@ -103,18 +104,14 @@ function AutoCook:stopAutoCook()
     end
 end
 
-function AutoCook:getPossibleCraftedFoodTypes(player, recipe, containers)
+function AutoCook:getPossibleCraftedFoodTypes(player, recipe, containers, exclude)
     if AutoCook.Verbose then print ("AutoCook:getPossibleCraftedFoodTypes") end
-    if containers == nil then
-        print ("AutoCook:getPossibleCraftedFoodTypes ERROR: containers was nil")
-        return
-    end
     local result = {}
     -- check all recipe items that end with "Open" and return all available in containers
     for i=0,recipe:getPossibleItems():size()-1 do
         local itemType = recipe:getPossibleItems():get(i):getFullType()
-
-        if AutoCook.AutoCraftRecipes[itemType] then
+        -- skip if excluded
+        if (not exclude or not exclude[itemType]) and AutoCook.AutoCraftRecipes[itemType] then
             -- if we have a recipe to retrieve the valid ingredient
             local openCanRecipe = AutoCook.AutoCraftRecipes[itemType]
             if openCanRecipe then
@@ -148,6 +145,15 @@ function AutoCook:queueGetSourceitemsAction(player, recipe, containerList)
     return sourceItems
 end
 
+function AutoCook:getTypeTable(list) 
+    local result= {}
+    for i=1,list:size() do
+        local item = list:get(i-1);
+        result[item:getFullType()] = true
+    end
+    return result
+end
+
 function AutoCook:continue()--continue method is used by ISContinue
     if AutoCook.Verbose then print ("AutoCook:continue") end
     if self.addAction and self.addAction.baseItem then
@@ -157,24 +163,33 @@ function AutoCook:continue()--continue method is used by ISContinue
     
     local containerList = ISInventoryPaneContextMenu.getContainers(self.playerObj);
     local items = self.recipe:getItemsCanBeUse(self.playerObj, self.baseItem, containerList);--use vanilla to get the list of potential food items
-    -- if we have an opener, add potientially valid ingredients we can craft
+
+    -- if configured, add potientially valid ingredients we can craft
     if AutoCook.AutoCraftIngredients then
-        local potentialCraftedFoodTypes = AutoCook:getPossibleCraftedFoodTypes(self.playerObj, self.recipe, containerList);
+        -- exclude already available ingredients
+        local availableItemTypes = AutoCook:getTypeTable(items)
+        local potentialCraftedFoodTypes = AutoCook:getPossibleCraftedFoodTypes(self.playerObj, self.recipe, containerList, availableItemTypes);
         for _, potentialCraftedFoodType in pairs(potentialCraftedFoodTypes) do
-            -- create comparable fake item from result type, fixme could be cached?
-            items:add(InventoryItemFactory.CreateItem(potentialCraftedFoodType))
+            -- create comparable fake item from result type or use a precached one
+            if not AutoCook.AutoCraftItemCache[potentialCraftedFoodType] then
+                AutoCook.AutoCraftItemCache[potentialCraftedFoodType] = InventoryItemFactory.CreateItem(potentialCraftedFoodType)
+            end
+            
+            items:add(AutoCook.AutoCraftItemCache[potentialCraftedFoodType])
         end
     end
 
-    local usedItem, isReal = self:chooseItem(items,self.baseItem,self.recipe);--here is the automat food selection
+    local usedItem = self:chooseItem(items,self.baseItem,self.recipe);--here is the automat food selection
     items:clear() -- assure release all references
 
     if not usedItem then--if there is no more available item stop auto cook
         self:stopAutoCook();
         return
     end
+    if AutoCook.Verbose then print ("AutoCook:chose item " .. usedItem:getType() .. " - isReal: " .. tostring(isReal)) end
 
     --if item needs to be created, get necessary tools and craft it
+    local isReal = (usedItem:getContainer() ~= nil or usedItem:getWorldItem() ~= nil)
     if not isReal then
         local cannedItemRecipe = AutoCook.AutoCraftRecipes[usedItem:getFullType()]
         -- transfer everything we need
@@ -190,6 +205,9 @@ function AutoCook:continue()--continue method is used by ISContinue
         if not self.playerObj:getInventory():contains(self.baseItem) then -- take the base item if it's not in our inventory
             ISTimedActionQueue.add(ISInventoryTransferAction:new(self.playerObj, self.baseItem, self.baseItem:getContainer(), self.playerObj:getInventory(), nil));
         end
+
+        -- set item used
+        self:setItemUsed(usedItem:getFullType());
 
         --add the timed action to cook the add chosenItem to baseItem in recipe.
         self.addAction = ISAddItemInRecipe:new(self.playerObj, self.recipe, self.baseItem, usedItem, (70 - self.playerObj:getPerkLevel(Perks.Cooking)))
@@ -301,13 +319,7 @@ function AutoCook:chooseItem(items, baseItem, recipe)
         end
     end
     
-    -- set used if its not only a potential ingredient
-    local canBeUsed = (evoItem:getContainer() or evoItem:getWorldItem())
-    if evoItem and canBeUsed then
-        self:setItemUsed(evoItem:getFullType());
-    end
-    
-    return evoItem, canBeUsed
+    return evoItem
 end
 
 function AutoCook:filterFood(item)

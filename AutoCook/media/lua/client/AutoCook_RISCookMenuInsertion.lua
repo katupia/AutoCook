@@ -47,7 +47,8 @@ local function onAddAutoCookContextOption(playerID, context, items)
                 end
 
                 if AutoCook.AutoCraftIngredients then
-                    local possibleCraftedIngredients = AutoCook:getPossibleCraftedFoodTypes(player, recipe, containerList)
+                    local availableItemTypes = AutoCook:getTypeTable(items)
+                    local possibleCraftedIngredients = AutoCook:getPossibleCraftedFoodTypes(player, recipe, containerList, availableItemTypes)
                     local possibleItems = #possibleCraftedIngredients
 
                     -- check if the only available items are crafted spices
