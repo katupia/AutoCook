@@ -128,20 +128,6 @@ function AutoCook:getPossibleCraftedFoodTypes(player, recipe, containers)
     return result
 end
 
-function AutoCook:hasOpener(player, containerList)
-    if player:getInventory():containsTag("CanOpener") then
-        return true
-    else
-        for i=1, containerList:size()-1 do
-            local container = containerList:get(i)
-            if container:containsTag("CanOpener") then
-                return true 
-            end
-        end
-    end
-    return false
-end
-
 function AutoCook:queueGetSourceitemsAction(player, recipe, containerList)
     local sourceItems = {}
     local items = RecipeManager.getAvailableItemsNeeded(recipe, player, containerList, nil, nil);
@@ -181,6 +167,7 @@ function AutoCook:continue()--continue method is used by ISContinue
     end
 
     local usedItem, isReal = self:chooseItem(items,self.baseItem,self.recipe);--here is the automat food selection
+    items:clear() -- assure release all references
 
     if not usedItem then--if there is no more available item stop auto cook
         self:stopAutoCook();
@@ -527,5 +514,4 @@ end
 -- load persisted values on reload script
 if isDebugEnabled() then
     AutoCook:init(getPlayer())
-
 end
