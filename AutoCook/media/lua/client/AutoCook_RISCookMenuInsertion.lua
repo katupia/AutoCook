@@ -47,7 +47,19 @@ local function onAddAutoCookContextOption(playerID, context, items)
                 end
 
                 if AutoCook.AutoCraftIngredients then
-                    itemCount = itemCount + #AutoCook:getPossibleCraftedFoodTypes(player, recipe, containerList)
+                    local possibleCraftedIngredients = AutoCook:getPossibleCraftedFoodTypes(player, recipe, containerList)
+                    local possibleItems = #possibleCraftedIngredients
+
+                    -- check if the only available items are crafted spices
+                    if itemCount == 0 and possibleItems == 1 then
+                        --local craftedIngredient = InventoryItemFactory.CreateItem(possibleCraftedIngredients[1]:getFullType())
+                        --if resultItem:isSpice() or craftedIngredient:isSpice() then
+                        -- script item doesnt support this and not worth creating item for this... just exclude gravy and wait for complaints
+                        if possibleCraftedIngredients[1] == "Base.Gravy" then
+                            possibleItems = 0
+                        end
+                    end
+                    itemCount = itemCount + possibleItems
                 end
 
                 local tooltipText
