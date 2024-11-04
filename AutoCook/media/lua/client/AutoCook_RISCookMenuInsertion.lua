@@ -37,10 +37,12 @@ local function onAddAutoCookContextOption(playerID, context, items)
                    itemCount = items:size() 
                 end
                 local tooltip = ISInventoryPaneContextMenu.addToolTip()
-                local tooltipText
-
                 tooltip:setName(recipe:getName())
-                if baseItem:getTexture() and baseItem:getTexture():getName() ~= "Question_On" then
+
+                local resultItem = ScriptManager.instance:getItem(recipe:getFullResultItem())
+                if resultItem and resultItem:getNormalTexture() and resultItem:getNormalTexture() ~= "Question_On" then
+                    tooltip:setTexture(resultItem:getNormalTexture():getName())
+                elseif baseItem:getTexture() and baseItem:getTexture():getName() ~= "Question_On" then
                     tooltip:setTexture(baseItem:getTexture():getName())
                 end
 
@@ -48,14 +50,14 @@ local function onAddAutoCookContextOption(playerID, context, items)
                     itemCount = itemCount + #AutoCook:getPossibleCraftedFoodTypes(player, recipe, containerList)
                 end
 
-                -- if no source items available
-                if itemCount == 0 then
-                    -- add error tooltip
-                    option.notAvailable = true
-                    tooltipText = getText("ContextMenu_AutoCook_Tooltip_No_Mats")
-                else
+                local tooltipText
+                if itemCount > 0 then
                     tooltipText = getText("ContextMenu_AutoCook_Tooltip", itemCount, fromName)
                     -- include info about current config?
+                else
+                    -- if no source items available add error tooltip
+                    option.notAvailable = true
+                    tooltipText = getText("ContextMenu_AutoCook_Tooltip_No_Mats")
                 end
                 tooltip.description = tooltipText
                 option.toolTip = tooltip
