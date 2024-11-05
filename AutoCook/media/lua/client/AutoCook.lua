@@ -159,11 +159,6 @@ function AutoCook:continue()--continue method is used by ISContinue
     local ingredientsCount = 0
     if ingredients then
         ingredientsCount = ingredients:size()
-        if ingredientsCount == self.recipe:getMaxItems() then
-            if AutoCook.Verbose then print ("AutoCook:continue - max ingredients reached.") end
-            self:stopAutoCook();
-            return
-        end
     end
     
     if AutoCook.Verbose then print ("AutoCook:continue on " .. self.baseItem:getName() .. " - ingredients: " .. ingredientsCount) end
@@ -185,8 +180,12 @@ function AutoCook:continue()--continue method is used by ISContinue
             if not AutoCook.AutoCraftItemCache[potentialCraftedFoodType] then
                 AutoCook.AutoCraftItemCache[potentialCraftedFoodType] = InventoryItemFactory.CreateItem(potentialCraftedFoodType)
             end
-            
-            items:add(AutoCook.AutoCraftItemCache[potentialCraftedFoodType])
+            local potentialIngredientItem = AutoCook.AutoCraftItemCache[potentialCraftedFoodType]
+            -- dont add item if not spice and full or spice and already in or meal empty
+            if not ((ingredientsCount == 0 or self:getNumberAlreadyUsed(potentialCraftedFoodType) > 0) and potentialIngredientItem:isSpice()
+                or ingredientsCount == self.recipe:getMaxItems() and not potentialIngredientItem:isSpice()) then
+                items:add(AutoCook.AutoCraftItemCache[potentialCraftedFoodType])
+            end
         end
     end
 
@@ -197,10 +196,10 @@ function AutoCook:continue()--continue method is used by ISContinue
         self:stopAutoCook();
         return
     end
-    if AutoCook.Verbose then print ("AutoCook:chose item " .. usedItem:getType() .. " - isReal: " .. tostring(isReal)) end
 
     --if item needs to be created, get necessary tools and craft it
     local isReal = (usedItem:getContainer() ~= nil or usedItem:getWorldItem() ~= nil)
+    if AutoCook.Verbose then print ("AutoCook:chose item " .. usedItem:getType() .. " - isReal: " .. tostring(isReal)) end
     if not isReal then
         local cannedItemRecipe = AutoCook.AutoCraftRecipes[usedItem:getFullType()]
         -- transfer everything we need
