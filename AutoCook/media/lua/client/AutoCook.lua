@@ -155,7 +155,18 @@ function AutoCook:getTypeTable(list)
 end
 
 function AutoCook:continue()--continue method is used by ISContinue
-    if AutoCook.Verbose then print ("AutoCook:continue") end
+    local ingredients = self.baseItem:getExtraItems()
+    local ingredientsCount = 0
+    if ingredients then
+        ingredientsCount = ingredients:size()
+        if ingredientsCount == self.recipe:getMaxItems() then
+            if AutoCook.Verbose then print ("AutoCook:continue - max ingredients reached.") end
+            self:stopAutoCook();
+            return
+        end
+    end
+    
+    if AutoCook.Verbose then print ("AutoCook:continue on " .. self.baseItem:getName() .. " - ingredients: " .. ingredientsCount) end
     if self.addAction and self.addAction.baseItem then
         self.baseItem = self.addAction.baseItem;--in cases base item changed during last add action
         if AutoCook.Verbose then print ("AutoCook:continue item switch to "..self.baseItem:getName()) end
