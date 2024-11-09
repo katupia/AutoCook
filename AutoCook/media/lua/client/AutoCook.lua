@@ -3,7 +3,7 @@ require "ISContinue"
 if not AutoCook then
     AutoCook = {}
 end
-AutoCook.Verbose = true
+AutoCook.Verbose = false
 AutoCook.MaxSpices = -1
 AutoCook.SmartSpices = true
 AutoCook.SmartSpicesMaxWeight = 84
