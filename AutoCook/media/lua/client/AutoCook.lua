@@ -1,6 +1,8 @@
 require "ISContinue"
 
-AutoCook = {}
+if not AutoCook then
+    AutoCook = {}
+end
 AutoCook.Verbose = false
 AutoCook.MaxSpices = -1
 AutoCook.SmartSpices = true
@@ -113,14 +115,20 @@ function AutoCook:continue()--continue method is used by ISContinue
         local potentialCraftedFoodTypes = AutoCook.getPossibleCraftedFoodTypes(self.playerObj, self.recipe, containerList, availableItemTypes);
         for _, potentialCraftedFoodType in pairs(potentialCraftedFoodTypes) do
             -- create comparable fake item from result type or use a precached one
-            if not AutoCook.AutoCraftItemCache[potentialCraftedFoodType] then
-                AutoCook.AutoCraftItemCache[potentialCraftedFoodType] = InventoryItemFactory.CreateItem(potentialCraftedFoodType)
-            end
             local potentialIngredientItem = AutoCook.AutoCraftItemCache[potentialCraftedFoodType]
+            if not potentialIngredientItem then
+                potentialIngredientItem = InventoryItemFactory.CreateItem(potentialCraftedFoodType)
+                -- set age of a closed canned good to assure valid comparison
+                if potentialIngredientItem.setOffAge then
+                    potentialIngredientItem:setOffAge(1000000000)
+                    potentialIngredientItem:setOffAgeMax(1000000000)
+                end
+                AutoCook.AutoCraftItemCache[potentialCraftedFoodType] = potentialIngredientItem
+            end
             -- dont add item if not spice and full or spice and already in or meal empty
             if not ((ingredientsCount == 0 or self:getNumberAlreadyUsed(potentialCraftedFoodType) > 0) and potentialIngredientItem:isSpice()
                 or ingredientsCount == self.recipe:getMaxItems() and not potentialIngredientItem:isSpice()) then
-                items:add(AutoCook.AutoCraftItemCache[potentialCraftedFoodType])
+                items:add(potentialIngredientItem)
             end
         end
     end
