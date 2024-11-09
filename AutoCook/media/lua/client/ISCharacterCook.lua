@@ -17,19 +17,19 @@ function ISCharacterCook:createChildren()
     AutoCook.init(self, self.char)
 
     self.textY = 0
-    --prebuild some stuff
     self.inputX = self:getWidth() / 2
-
+    
     -- Cooking mode and ingredients
     self:createCookingModeCombo()
     self.textY = self.textY + 5
-    self:createDuplicateInput()
-    self:createRottenTick()
+    self:createNumberInput("MaxDuplicate", "UI_AutoCookMaxDuplicate", 1, 6, "UI_AutoCookMaxDuplicateTooltip", UIFont.Small)
+    self:createTickBox("UseRotten", "UI_AutoCookUseRotten", "UI_AutoCookUseRottenTooltip")
+    self:createTickBox("AutoCraftIngredients", "UI_AutoCookAutoCraftIngredients", "UI_AutoCookAutoCraftIngredientsTooltip")
     self.textY = self.textY + 15
 
     -- Spices
-    self:createSpiceInput()
-    self:createSpiceTick()
+    self:createNumberInput("MaxSpices", "UI_AutoCookMaxSpices", -1, 10, "UI_AutoCookMaxSpicesTooltip", UIFont.Medium)
+    self:createTickBox("SmartSpices", "UI_AutoCookSmartSpices", "UI_AutoCookSmartSpicesTooltip")
     self.textY = self.textY + 10
 
     self:setScrollChildren(true)
@@ -235,157 +235,111 @@ function ISCharacterCook:onComboSelectCookMode()
     self.char:getModData().AutoCook.CookMode = AutoCook.CookMode
 end
 
-function ISCharacterCook:createRottenTick()
-    local smartOptionText = getText("UI_AutoCookUseRotten")
-    local txtWidth = getTextManager():MeasureStringX(UIFont.Medium, smartOptionText)
+function ISCharacterCook:createTickBox(settingId, text, tooltip)
+    local txtWidth = getTextManager():MeasureStringX(UIFont.Medium, getText(text))
     local tickBoxHeight = FONT_HGT_MEDIUM
-    if self.rottenTickBox then self:removeChild(self.rottenTickBox) end
-    self.rottenTickBox = ISTickBox:new(self.textX, self.textY, txtWidth, tickBoxHeight, "rottenTick", self, self.onChangeRottenMode);
-    self.rottenTickBox:initialise()
-    self:addChild(self.rottenTickBox)
-    self.rottenTickBox:addOption(smartOptionText)
-    self.rottenTickBox:setSelected(1, AutoCook.UseRotten)
-    self.rottenTickBox.tooltip = getText("UI_AutoCookUseRottenTooltip")
+    local viewID = "tickbox_" .. settingId
+    if self[viewID] then self:removeChild(self[settingId]) end
+    self[viewID] = ISTickBox:new(self.textX, self.textY, txtWidth, tickBoxHeight, viewID, self, self.onTickChange, settingId);
+    self[viewID]:initialise()
+    self:addChild(self[viewID])
+    self[viewID]:addOption(getText(text))
+    self[viewID]:setSelected(1, AutoCook[settingId])
+    self[viewID].tooltip = getText(tooltip)
 
-    self.textY = self.rottenTickBox:getBottom()
+    self.textY = self[viewID]:getBottom()
 end
 
-function ISCharacterCook:onChangeRottenMode(index, isEnabled)
-    AutoCook.UseRotten = isEnabled
-    self.char:getModData().AutoCook.UseRotten = AutoCook.UseRotten
+function ISCharacterCook:onTickChange(index, isEnabled, settingId)
+    AutoCook[settingId] = isEnabled
+    self.char:getModData().AutoCook[settingId] = AutoCook[settingId]
 end
 
-function ISCharacterCook:createDuplicateInput()
-    -- create label
-    if self.duplicatesInputLabel then self:removeChild(self.duplicatesInputLabel) end
-    self.duplicatesInputLabel = ISLabel:new(self.textX, self.textY, FONT_HGT_SMALL, getText("UI_AutoCookMaxDuplicate"), 1, 1, 1, 1, UIFont.Small, true)
-	self.duplicatesInputLabel:initialise();
-	self.duplicatesInputLabel:instantiate();
-	self:addChild(self.duplicatesInputLabel)
-
-    -- copy from ISFitnessUI
-    local dupText = "N/A"
-    if AutoCook.MaxDuplicate then
-        dupText = tostring(AutoCook.MaxDuplicate)
+function ISCharacterCook:createNumberInput(settingId, text, min, max, tooltip, labelFontSize)
+    if not labelFontSize then
+        labelFontSize = UIFont.Small
     end
-    if self.duplicatesInput then self:removeChild(self.duplicatesInput) end
-    self.duplicatesInput = ISTextEntryBox:new(dupText, self.inputX, self.textY - 2, 55, FONT_HGT_SMALL + 2 * 2)
-	self.duplicatesInput:initialise();
-	self.duplicatesInput:instantiate();
-	self.duplicatesInput.font = UIFont.Medium
-	self.duplicatesInput:setOnlyNumbers(true);
-	self.duplicatesInput:setEditable(false);
-	self:addChild(self.duplicatesInput)
+    local labelViewId = "label_"..settingId
+    -- create label
+    if self[labelViewId] then self:removeChild(self[labelViewId]) end
+    self[labelViewId] = ISLabel:new(self.textX, self.textY, getTextManager():getFontHeight(labelFontSize), getText(text), 1, 1, 1, 1, labelFontSize, true)
+	self[labelViewId]:initialise()
+	self[labelViewId]:instantiate()
+	self:addChild(self[labelViewId])
+	self[labelViewId].tooltip = getText(tooltip)
+
+    local inputViewId = "input_"..settingId
+    if self[inputViewId] then self:removeChild(self[inputViewId]) end
+    local yOffset = -2
+    if labelFontSize == UIFont.Medium then
+        yOffset = 2
+    end
+    
+    local minXSecondColumn = self.textX + self[labelViewId]:getWidth() + 5
+    if self.inputX < minXSecondColumn then
+        self.inputX = minXSecondColumn
+    end
+    self[inputViewId] = ISTextEntryBox:new("N/A", self.inputX, self.textY + yOffset, 55, FONT_HGT_SMALL + 2 * 2)
+	self[inputViewId]:initialise()
+	self[inputViewId]:instantiate()
+	self[inputViewId].font = UIFont.Medium
+	self[inputViewId]:setOnlyNumbers(true)
+	self[inputViewId]:setEditable(false)
+    if AutoCook[settingId] then
+        -- set current value
+        self:onNumberInput(nil, settingId, inputViewId)
+    end
+	self:addChild(self[inputViewId])
 
 	-- +/- buttons
-    if self.duplicatesInputPlus then self:removeChild(self.duplicatesInputPlus) end
-	self.duplicatesInputPlus = ISButton:new(self.duplicatesInput.x + self.duplicatesInput:getWidth() + 2, self.duplicatesInput.y, self.duplicatesInput:getHeight(), self.duplicatesInput:getHeight(), "+", self, self.onDuplicatesInput)
-	self.duplicatesInputPlus:initialise();
-	self.duplicatesInputPlus:instantiate();
-	self.duplicatesInputPlus.internal = "PLUS";
-	self:addChild(self.duplicatesInputPlus)
-	
-    if self.duplicatesInputMinus then self:removeChild(self.duplicatesInputMinus) end
-	self.duplicatesInputMinus = ISButton:new(self.duplicatesInputPlus.x + self.duplicatesInputPlus:getWidth() + 1, self.duplicatesInput.y, self.duplicatesInput:getHeight(), self.duplicatesInput:getHeight(), "-", self, self.onDuplicatesInput)
-	self.duplicatesInputMinus:initialise();
-	self.duplicatesInputMinus:instantiate();
-	self.duplicatesInputMinus.internal = "MINUS";
-	self:addChild(self.duplicatesInputMinus)
+    local plusViewID = "buttonPlus_"..settingId
+    if self[plusViewID] then self:removeChild(self[plusViewID]) end
+    self[plusViewID] = ISButton:new(self[inputViewId].x + self[inputViewId]:getWidth() + 2, self[inputViewId].y, self[inputViewId]:getHeight(), self[inputViewId]:getHeight(), "+", self, self.onNumberInput)
+    self[plusViewID]:initialise()
+    self[plusViewID]:instantiate()
+    self[plusViewID].internal = "PLUS"
+    self[plusViewID].settingId = settingId
+    self[plusViewID].inputViewId = inputViewId
+    self[plusViewID].max = max
+    self:addChild(self[plusViewID])
 
-	self:setHeight(self.duplicatesInput:getBottom())
+    local minusViewID = "buttonMinus_"..settingId
+    if self[minusViewID] then self:removeChild(self[minusViewID]) end
+    self[minusViewID] = ISButton:new(self[plusViewID].x + self[plusViewID]:getWidth() + 1, self[inputViewId].y, self[inputViewId]:getHeight(), self[inputViewId]:getHeight(), "-", self, self.onNumberInput)
+    self[minusViewID]:initialise()
+    self[minusViewID]:instantiate()
+    self[minusViewID].internal = "MINUS"
+    self[minusViewID].settingId = settingId
+    self[minusViewID].inputViewId = inputViewId
+    self[minusViewID].min = min
+    self:addChild(self[minusViewID])
 
-    self.textY = self.duplicatesInput:getBottom()
+    self:setHeight(self[minusViewID]:getBottom())
+    self.textY = self[minusViewID]:getBottom()
+    
+    if self:getWidth() < self[minusViewID]:getRight() then
+        self:setWidth(self[minusViewID]:getRight())
+    end
 end
 
-function ISCharacterCook:onDuplicatesInput(button)
-    if button.internal == "PLUS" and AutoCook.MaxDuplicate < 6 then
-        AutoCook.MaxDuplicate = AutoCook.MaxDuplicate + 1;
-    end
-    if button.internal == "MINUS" and AutoCook.MaxDuplicate > 1 then
-        AutoCook.MaxDuplicate = AutoCook.MaxDuplicate - 1;
-    end
-    self.char:getModData().AutoCook.MaxDuplicate = AutoCook.MaxDuplicate
-
-    self.duplicatesInput:setText(tostring(AutoCook.MaxDuplicate));
-end
-
-function ISCharacterCook:createSpiceInput()
-    -- create label
-    if self.spiceInputLabel then self:removeChild(self.spiceInputLabel) end
-    self.spiceInputLabel = ISLabel:new(self.textX, self.textY, FONT_HGT_MEDIUM, getText("UI_AutoCookMaxSpices"), 1, 1, 1, 1, UIFont.Medium, true)
-	self.spiceInputLabel:initialise();
-	self.spiceInputLabel:instantiate();
-	self:addChild(self.spiceInputLabel)
-
-    -- copy from ISFitnessUI
-    if self.spiceInput then self:removeChild(self.spiceInput) end
-    self.spiceInput = ISTextEntryBox:new("N/A", self.inputX, self.textY + 2, 55, FONT_HGT_SMALL + 2 * 2)
-	self.spiceInput:initialise();
-	self.spiceInput:instantiate();
-	self.spiceInput.font = UIFont.Medium
-	self.spiceInput:setOnlyNumbers(true);
-	self.spiceInput:setEditable(false);
-    if AutoCook.MaxSpices then
-        self:onSpiceInput(nil)
-    end
-	self:addChild(self.spiceInput)
-
-	-- +/- buttons
-    if self.spiceInputPlus then self:removeChild(self.spiceInputPlus) end
-	self.spiceInputPlus = ISButton:new(self.spiceInput.x + self.spiceInput:getWidth() + 2, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "+", self, self.onSpiceInput)
-	self.spiceInputPlus:initialise();
-	self.spiceInputPlus:instantiate();
-	self.spiceInputPlus.internal = "PLUS";
-	self:addChild(self.spiceInputPlus)
-	
-    if self.spiceInputMinus then self:removeChild(self.spiceInputMinus) end
-	self.spiceInputMinus = ISButton:new(self.spiceInputPlus.x + self.spiceInputPlus:getWidth() + 1, self.spiceInput.y, self.spiceInput:getHeight(), self.spiceInput:getHeight(), "-", self, self.onSpiceInput)
-	self.spiceInputMinus:initialise();
-	self.spiceInputMinus:instantiate();
-	self.spiceInputMinus.internal = "MINUS";
-	self:addChild(self.spiceInputMinus)
-
-	self:setHeight(self.spiceInput:getBottom())
-
-    self.textY = self.spiceInput:getBottom()
-end
-
-function ISCharacterCook:onSpiceInput(button)
+function ISCharacterCook:onNumberInput(button, settingId, inputViewId)
     if button ~= nil then
-        if button.internal == "PLUS" and AutoCook.MaxSpices < 10 then
-            AutoCook.MaxSpices = AutoCook.MaxSpices + 1;
-        end
-        if button.internal == "MINUS" and AutoCook.MaxSpices >= 0 then
-            AutoCook.MaxSpices = AutoCook.MaxSpices - 1;
-        end
-        self.char:getModData().AutoCook.MaxSpices = AutoCook.MaxSpices
-    end
+        settingId = button.settingId
+        inputViewId = button.inputViewId
 
-    if AutoCook.MaxSpices < 0 then
-        self.spiceInput:setText(getText("UI_AutoCookAll"));
+        if button.internal == "PLUS" and AutoCook[settingId] < button.max then
+            AutoCook[settingId] = AutoCook[settingId] + 1;
+        end
+        if button.internal == "MINUS" and AutoCook[settingId] > button.min then
+            AutoCook[settingId] = AutoCook[settingId] - 1;
+        end
+        self.char:getModData().AutoCook[settingId] = AutoCook[settingId]
+    end
+    if AutoCook[settingId] < 0 then
+        self[inputViewId]:setText(getText("UI_AutoCookAll"));
     else
-        self.spiceInput:setText(tostring(AutoCook.MaxSpices));
+        self[inputViewId]:setText(tostring(AutoCook[settingId]));
     end
-end
-
-function ISCharacterCook:createSpiceTick()
-    if self.spiceTickBox then self:removeChild(self.spiceTickBox) end
-    local smartOptionText = getText("UI_AutoCookSmartSpices")
-    local txtWidth = getTextManager():MeasureStringX(UIFont.Medium, smartOptionText)
-    local tickBoxHeight = FONT_HGT_MEDIUM
-    self.spiceTickBox = ISTickBox:new(self.textX, self.textY, txtWidth, tickBoxHeight, "spiceTick", self, self.onChangeSpiceMode);
-    self.spiceTickBox:initialise()
-    self:addChild(self.spiceTickBox)
-    self.spiceTickBox:addOption(smartOptionText)
-    self.spiceTickBox:setSelected(1, AutoCook.SmartSpices)
-    self.spiceTickBox.tooltip = getText("UI_AutoCookSmartSpicesTooltip")
-
-    self.textY = self.spiceTickBox:getBottom()
-end
-
-function ISCharacterCook:onChangeSpiceMode(index, isEnabled)
-    AutoCook.SmartSpices = isEnabled
-    self.char:getModData().AutoCook.SmartSpices = AutoCook.SmartSpices
 end
 
 function ISCharacterCook:ensureVisible()
