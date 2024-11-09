@@ -45,53 +45,7 @@ function AutoCook:init(player)
     end
 
     -- precache needed recipes
-    AutoCook:initAutoCraftRecipes()
-end
-
-function AutoCook:initAutoCraftRecipes()
-    if AutoCook.Verbose then print('initAutoCraftRecipes') end
-    local allRecipes = getAllRecipes()
-    local count = 0
-    for i=0,allRecipes:size()-1 do
-        local recipe = allRecipes:get(i);
-        if not recipe:isHidden() and recipe:getCategory() == 'Cooking' then
-            local sources = recipe:getSource()
-            local someFoodSource = false
-            --take only packaged food as source
-            for sourceIt=0, sources:size()-1 do
-                local source = sources:get(sourceIt)
-                local items = source:getItems()
-                for itemIt2=0, items:size()-1 do
-                    local itemStr = items:get(itemIt2)
-                    local item = getScriptManager():getItem(itemStr)
-                    if item and item:getTypeString() == 'Food' and not item:isCantEat() then--no access to Item.Type.Food ?!
-                        --if AutoCook.Verbose then print('initAutoCraftRecipes rejected: '..recipe:getName()..' for '..itemStr) end
-                        someFoodSource = true
-                        break
-                    end
-                end
-                if someFoodSource then break end
-            end
-            --ensure unpack result is auto-edible
-            local validResultItem = false
-            local result = recipe:getResult()
-            if result then
-                local resultType = result:getFullType()
-                local item = getScriptManager():getItem(resultType)
-                validResultItem =  item and item:getTypeString() == 'Food' and item:getHungerChange() < 0 -- result should be food with beneficial effect on hunger
-                if not validResultItem then
-                    if AutoCook.Verbose then print('initAutoCraftRecipes rejected for not edible result: '..recipe:getName()..' for '..resultType) end
-                end
-            end
-            -- if not AutoEat.predicateAutoEdibleFood(item) then reject recipe
-            if validResultItem and not someFoodSource then--only try recipes that use no food item as source and give an edible result
-                AutoCook.AutoCraftRecipes[result:getFullType()] = recipe
-                count = count + 1
-                if AutoCook.Verbose then print('initAutoCraftRecipes include: '..recipe:getName()) end
-            end
-        end
-    end
-    if AutoCook.Verbose then print('initAutoCraftRecipes loaded: '..count) end
+    AutoCook.initAutoCraftRecipes()
 end
 
 function AutoCook:stopAutoCook()
@@ -104,26 +58,6 @@ function AutoCook:stopAutoCook()
     end
 end
 
-function AutoCook:getPossibleCraftedFoodTypes(player, recipe, containers, exclude)
-    if AutoCook.Verbose then print ("AutoCook:getPossibleCraftedFoodTypes") end
-    local result = {}
-    -- check all recipe items that end with "Open" and return all available in containers
-    for i=0,recipe:getPossibleItems():size()-1 do
-        local itemType = recipe:getPossibleItems():get(i):getFullType()
-        -- skip if excluded
-        if (not exclude or not exclude[itemType]) and AutoCook.AutoCraftRecipes[itemType] then
-            -- if we have a recipe to retrieve the valid ingredient
-            local openCanRecipe = AutoCook.AutoCraftRecipes[itemType]
-            if openCanRecipe then
-                if RecipeManager.IsRecipeValid(openCanRecipe, player, nil, containers) then
-                    if AutoCook.Verbose then print ("AutoCook:getPossibleCraftedFoodTypes: found possible crafted food " .. itemType) end
-                    table.insert(result, itemType)
-                end
-            end
-        end
-    end
-    return result
-end
 
 function AutoCook:queueGetSourceitemsAction(player, recipe, containerList)
     local sourceItems = {}
@@ -174,7 +108,7 @@ function AutoCook:continue()--continue method is used by ISContinue
     if AutoCook.AutoCraftIngredients then
         -- exclude already available ingredients
         local availableItemTypes = AutoCook:getTypeTable(items)
-        local potentialCraftedFoodTypes = AutoCook:getPossibleCraftedFoodTypes(self.playerObj, self.recipe, containerList, availableItemTypes);
+        local potentialCraftedFoodTypes = AutoCook.getPossibleCraftedFoodTypes(self.playerObj, self.recipe, containerList, availableItemTypes);
         for _, potentialCraftedFoodType in pairs(potentialCraftedFoodTypes) do
             -- create comparable fake item from result type or use a precached one
             if not AutoCook.AutoCraftItemCache[potentialCraftedFoodType] then
@@ -355,143 +289,6 @@ function AutoCook:filterFood(item)
         end
     end
     return item
-end
-
-function AutoCook:selectForWeightLoss(leftItem, rightItem)
-    if AutoCook.Verbose then print ("AutoCook:selectForWeightLoss item comparison") end
-    local leftHunger = leftItem:getHungChange();
-    local leftCalories = leftItem:getCalories();
-    local rightHunger = rightItem:getHungChange();
-    local rightCalories = rightItem:getCalories();
-    if rightCalories <= 0 then
-        if leftCalories > 0 or rightHunger > leftHunger then
-            return rightItem
-        else
-            return leftItem
-        end
-    elseif leftCalories <= 0 then
-        return leftItem
-    else
-        local leftRatio = -leftHunger/leftCalories
-        local rightRatio = -rightHunger/rightCalories
-        if rightRatio > leftRatio then
-            return rightItem
-        else
-            return leftItem
-        end
-    end
-end
-function AutoCook:selectForWeightGain(leftItem, rightItem)
-    if AutoCook.Verbose then print ("AutoCook:selectForWeightGain item comparison") end
-    local leftHunger = leftItem:getHungChange();
-    local leftCalories = leftItem:getCalories();
-    local rightHunger = rightItem:getHungChange();
-    local rightCalories = rightItem:getCalories();
-    if rightCalories <= 0 then
-        if leftCalories > 0 or rightHunger > leftHunger then
-            return leftItem
-        else
-            return rightItem
-        end
-    elseif leftCalories <= 0 then
-        return rightItem
-    else
-        local leftRatio = -leftHunger/leftCalories
-        local rightRatio = -rightHunger/rightCalories
-        if rightRatio > leftRatio then
-            return leftItem
-        else
-            return rightItem
-        end
-    end
-end
-function AutoCook:selectForStrength(leftItem, rightItem, playerObj, baseItem)
-    if AutoCook.Verbose then print ("AutoCook:selectForStrength item comparison") end
-    --try to get calories between 50 and 300 target 300 for simplicity but is likely to not be accurate enough
-    local protein = playerObj:getNutrition():getProteins();
-    if instanceof(baseItem, "Food") then
-        protein = protein + baseItem:getProteins();
-    end
-    local leftProteins = protein + leftItem:getProteins()
-    local rightProteins = protein + rightItem:getProteins()
-    if leftProteins < AutoCook.ProteinTarget then
-        if rightProteins < AutoCook.ProteinTarget and rightProteins > leftProteins then
-                return rightItem
-        else
-            return leftItem
-        end
-    else
-        if rightProteins < AutoCook.ProteinTarget then
-            return rightItem
-        else--we could go over max protein, beware
-            if leftProteins < rightProteins and leftProteins < AutoCook.ProteinMax then
-                return leftItem
-            elseif rightProteins < leftProteins and rightProteins < AutoCook.ProteinMax then
-                return rightItem
-            else
-                return nil--do not eat then to avoid overprotein
-            end
-        end
-    end
-end
-
-function AutoCook:selectForLeftovers(leftItem, rightItem)
-    --if AutoCook.Verbose then print ("AutoCook:selectForLeftovers item comparison") end
-    local age = leftItem:getAge();
-    local agingDelta = leftItem:getOffAge() - age;
-    local rottingDelta = leftItem:getOffAgeMax() - age;
-            
-    local newAge = rightItem:getAge();
-    local newAgingDelta = rightItem:getOffAge() - newAge;       -- time left until stale 
-    local newRottingDelta = rightItem:getOffAgeMax() - newAge;  -- time left until rotten
-
-    -- take the ingredient that is the closest to rotting
-    if newRottingDelta < rottingDelta then
-        return rightItem
-    elseif newRottingDelta > rottingDelta then
-        return leftItem
-    else
-        -- if ingredients same age, prefer smaller "leftover" stacks
-        return self:selectForWeightLoss(leftItem, rightItem);
-    end
-end
-
-function AutoCook:selectDefault(leftItem, rightItem)
-    if AutoCook.Verbose then print ("AutoCook:selectDefault item comparison") end
-    local age = leftItem:getAge();
-    local agingDelta = leftItem:getOffAge() - age;
-    local rottingDelta = leftItem:getOffAgeMax() - age;
-            
-    local newAge = rightItem:getAge();
-    local newAgingDelta = rightItem:getOffAge() - newAge;
-    local newRottingDelta = rightItem:getOffAgeMax() - newAge;
-    --we take the ingredient that is the closest to loose freshness
-    --if both have lost freshness we take the ingredient that's the closest to rot
-    if newAgingDelta > 0 and (newAgingDelta < agingDelta or agingDelta < 0) or (agingDelta < 0 and newRottingDelta > 0 and (newRottingDelta < rottingDelta or rottingDelta < 0 )) then
-        return rightItem
-    end
-    return leftItem--TODO filter depending on selected limitations
-end
-
-function AutoCook:selectNutritionist(leftItem, rightItem)
-    if AutoCook.Verbose then print ("AutoCook:selectNutritionist item comparison") end
-    local nutrition = self.playerObj:getNutrition();
-    local playerWeight = nutrition:getWeight();
-    if playerWeight < AutoCook.NutritionistMinWeight then
-        return self:selectForWeightGain(leftItem, rightItem);
-    elseif playerWeight > AutoCook.NutritionistMaxWeight then
-        return self:selectForWeightLoss(leftItem, rightItem);
-    else
-        return self:selectForStrength(leftItem, rightItem, self.playerObj, self.baseItem);
-    end
-end
-
-function AutoCook:selectPreferedFood(leftItem, rightItem)
-    if AutoCook.CookMode == 2 then return self:selectForLeftovers(leftItem, rightItem) end
-    if AutoCook.CookMode == 3 then return self:selectForWeightLoss(leftItem, rightItem) end
-    if AutoCook.CookMode == 4 then return self:selectForWeightGain(leftItem, rightItem) end
-    if AutoCook.CookMode == 5 then return self:selectNutritionist(leftItem, rightItem) end
-    return self:selectDefault(leftItem, rightItem)--0/1/any
 end
 
 function AutoCook:getNumberAlreadyUsed(itemType)

@@ -17,19 +17,18 @@ function ISCharacterCook:createChildren()
     AutoCook.init(self, self.char)
 
     self.textY = 0
-    --prebuild some stuff
     self.inputX = self:getWidth() / 2
-
+    
     -- Cooking mode and ingredients
     self:createCookingModeCombo()
     self.textY = self.textY + 5
-    self:createNumberInput("MaxDuplicate", "UI_AutoCookMaxDuplicate", 1, 6, "UI_AutoCookAutoCraftIngredientsTooltip", UIFont.Small)
+    self:createNumberInput("MaxDuplicate", "UI_AutoCookMaxDuplicate", 1, 6, "UI_AutoCookMaxDuplicateTooltip", UIFont.Small)
     self:createTickBox("UseRotten", "UI_AutoCookUseRotten", "UI_AutoCookUseRottenTooltip")
     self:createTickBox("AutoCraftIngredients", "UI_AutoCookAutoCraftIngredients", "UI_AutoCookAutoCraftIngredientsTooltip")
     self.textY = self.textY + 15
 
     -- Spices
-    self:createNumberInput("MaxSpices", "UI_AutoCookMaxSpices", 0, 10, "UI_AutoCookMaxSpicesTooltip", UIFont.Medium)
+    self:createNumberInput("MaxSpices", "UI_AutoCookMaxSpices", -1, 10, "UI_AutoCookMaxSpicesTooltip", UIFont.Medium)
     self:createTickBox("SmartSpices", "UI_AutoCookSmartSpices", "UI_AutoCookSmartSpicesTooltip")
     self.textY = self.textY + 10
 
@@ -275,7 +274,11 @@ function ISCharacterCook:createNumberInput(settingId, text, min, max, tooltip, l
     if labelFontSize == UIFont.Medium then
         yOffset = 2
     end
-
+    
+    local minXSecondColumn = self.textX + self[labelViewId]:getWidth() + 5
+    if self.inputX < minXSecondColumn then
+        self.inputX = minXSecondColumn
+    end
     self[inputViewId] = ISTextEntryBox:new("N/A", self.inputX, self.textY + yOffset, 55, FONT_HGT_SMALL + 2 * 2)
 	self[inputViewId]:initialise()
 	self[inputViewId]:instantiate()
@@ -291,28 +294,32 @@ function ISCharacterCook:createNumberInput(settingId, text, min, max, tooltip, l
 	-- +/- buttons
     local plusViewID = "buttonPlus_"..settingId
     if self[plusViewID] then self:removeChild(self[plusViewID]) end
-	self[plusViewID] = ISButton:new(self[inputViewId].x + self[inputViewId]:getWidth() + 2, self[inputViewId].y, self[inputViewId]:getHeight(), self[inputViewId]:getHeight(), "+", self, self.onNumberInput)
-	self[plusViewID]:initialise()
-	self[plusViewID]:instantiate()
-	self[plusViewID].internal = "PLUS"
+    self[plusViewID] = ISButton:new(self[inputViewId].x + self[inputViewId]:getWidth() + 2, self[inputViewId].y, self[inputViewId]:getHeight(), self[inputViewId]:getHeight(), "+", self, self.onNumberInput)
+    self[plusViewID]:initialise()
+    self[plusViewID]:instantiate()
+    self[plusViewID].internal = "PLUS"
     self[plusViewID].settingId = settingId
     self[plusViewID].inputViewId = inputViewId
     self[plusViewID].max = max
-	self:addChild(self[plusViewID])
-	
+    self:addChild(self[plusViewID])
+
     local minusViewID = "buttonMinus_"..settingId
     if self[minusViewID] then self:removeChild(self[minusViewID]) end
-	self[minusViewID] = ISButton:new(self[plusViewID].x + self[plusViewID]:getWidth() + 1, self[inputViewId].y, self[inputViewId]:getHeight(), self[inputViewId]:getHeight(), "-", self, self.onNumberInput)
-	self[minusViewID]:initialise()
-	self[minusViewID]:instantiate()
-	self[minusViewID].internal = "MINUS"
+    self[minusViewID] = ISButton:new(self[plusViewID].x + self[plusViewID]:getWidth() + 1, self[inputViewId].y, self[inputViewId]:getHeight(), self[inputViewId]:getHeight(), "-", self, self.onNumberInput)
+    self[minusViewID]:initialise()
+    self[minusViewID]:instantiate()
+    self[minusViewID].internal = "MINUS"
     self[minusViewID].settingId = settingId
     self[minusViewID].inputViewId = inputViewId
     self[minusViewID].min = min
-	self:addChild(self[minusViewID])
+    self:addChild(self[minusViewID])
 
-	self:setHeight(self[minusViewID]:getBottom())
+    self:setHeight(self[minusViewID]:getBottom())
     self.textY = self[minusViewID]:getBottom()
+    
+    if self:getWidth() < self[minusViewID]:getRight() then
+        self:setWidth(self[minusViewID]:getRight())
+    end
 end
 
 function ISCharacterCook:onNumberInput(button, settingId, inputViewId)
