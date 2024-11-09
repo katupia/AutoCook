@@ -22,6 +22,7 @@ AutoCook.UseRotten = true
 AutoCook.AutoCraftIngredients = true
 AutoCook.AutoCraftRecipes = {}
 AutoCook.AutoCraftItemCache = {} --holds created items used for comparison
+AutoCook.PrioritizeVariety = true
 
 function AutoCook:init(player)
     if player == nil or player:getModData() == nil then
@@ -89,6 +90,11 @@ function AutoCook:getTypeTable(list)
 end
 
 function AutoCook:continue()--continue method is used by ISContinue
+    if self.addAction and self.addAction.baseItem then
+        self.baseItem = self.addAction.baseItem;--in cases base item changed during last add action
+        if AutoCook.Verbose then print ("AutoCook:continue item switch to "..self.baseItem:getName()) end
+    end
+
     local ingredients = self.baseItem:getExtraItems()
     local ingredientsCount = 0
     if ingredients then
@@ -96,10 +102,6 @@ function AutoCook:continue()--continue method is used by ISContinue
     end
     
     if AutoCook.Verbose then print ("AutoCook:continue on " .. self.baseItem:getName() .. " - ingredients: " .. ingredientsCount) end
-    if self.addAction and self.addAction.baseItem then
-        self.baseItem = self.addAction.baseItem;--in cases base item changed during last add action
-        if AutoCook.Verbose then print ("AutoCook:continue item switch to "..self.baseItem:getName()) end
-    end
     
     local containerList = ISInventoryPaneContextMenu.getContainers(self.playerObj);
     local items = self.recipe:getItemsCanBeUse(self.playerObj, self.baseItem, containerList);--use vanilla to get the list of potential food items
@@ -237,27 +239,41 @@ function AutoCook:chooseItem(items, baseItem, recipe)
     end
     
     --we switch ingredient as much as possible (higher priority than all other stuff)
-    for i=1,#listsItems do
-        local chosenList = listsItems[i]
-        if not evoItem and #chosenList > 0 and i <= AutoCook.MaxDuplicate then --loop for priority depending on already used item type
-            local evoItemIter = 0
-            for itemIter=1,#chosenList do
-                if not evoItem then
-                    evoItem = chosenList[itemIter]
-                    if evoItem then
-                        evoItemIter = itemIter
-                    else
-                        evoItem = nil--reject food item
+    if AutoCook.PrioritizeVariety then
+        for i=1,#listsItems do
+            local chosenList = listsItems[i]
+            if not evoItem and #chosenList > 0 and i <= AutoCook.MaxDuplicate then --loop for priority depending on already used item type
+                local evoItemIter = 0
+                for itemIter=1,#chosenList do
+                    if not evoItem then
+                        evoItem = chosenList[itemIter]
+                        if evoItem then
+                            evoItemIter = itemIter
+                        else
+                            evoItem = nil--reject food item
+                        end
+                    end
+                end
+
+                for itemIter=evoItemIter+1,#chosenList do
+                    local item = chosenList[itemIter];
+                    if item and evoItem then
+                        evoItem = self:selectPreferedFood(evoItem,item);
+                    elseif item then
+                        evoItem = item;
                     end
                 end
             end
-
-            for itemIter=evoItemIter+1,#chosenList do
-                local item = chosenList[itemIter];
-                if item and evoItem then
-                    evoItem = self:selectPreferedFood(evoItem,item);
-                elseif item then
-                    evoItem = item;
+        end
+    else
+        for i=1,#listsItems do
+            if i <= AutoCook.MaxDuplicate then
+                for key, item in pairs(listsItems[i]) do
+                    if item and evoItem then
+                        evoItem = self:selectPreferedFood(evoItem,item);
+                    elseif item then
+                        evoItem = item;
+                    end
                 end
             end
         end

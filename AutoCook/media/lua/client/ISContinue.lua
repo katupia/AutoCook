@@ -4,12 +4,12 @@ require "TimedActions/ISBaseTimedAction"
 ISContinue = ISBaseTimedAction:derive("ISContinue");
 
 function ISContinue:isValid()
-    if AutoCook.Verbose then print ("ISContinue:isValid") end
+    --if AutoCook.Verbose then print ("ISContinue:isValid") end
     return self.target ~= nil;
 end
 
 function ISContinue:update()
-    if AutoCook.Verbose then print ("ISContinue:update") end
+    --if AutoCook.Verbose then print ("ISContinue:update") end
 end
 
 function ISContinue:start()

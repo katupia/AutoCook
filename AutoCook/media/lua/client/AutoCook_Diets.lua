@@ -108,7 +108,7 @@ function AutoCook:selectForStrength(leftItem, rightItem, playerObj, baseItem)
 end
 
 function AutoCook:selectForLeftovers(leftItem, rightItem)
-    --if AutoCook.Verbose then print ("AutoCook:selectForLeftovers item comparison") end
+    if AutoCook.Verbose then print ("AutoCook:selectForLeftovers item comparison") end
     local age = leftItem:getAge();
     local agingDelta = leftItem:getOffAge() - age;
     local rottingDelta = leftItem:getOffAgeMax() - age;
@@ -118,9 +118,12 @@ function AutoCook:selectForLeftovers(leftItem, rightItem)
     local newRottingDelta = rightItem:getOffAgeMax() - newAge;  -- time left until rotten
 
     -- take the ingredient that is the closest to rotting
+    if AutoCook.Verbose then print(rottingDelta .. " - " .. newRottingDelta) end
     if newRottingDelta < rottingDelta then
+        if AutoCook.Verbose then print("item " .. rightItem:getName() .. " is closer to rot than " .. leftItem:getName()) end
         return rightItem
     elseif newRottingDelta > rottingDelta then
+        if AutoCook.Verbose then print("item " .. leftItem:getName() .. " is closer to rot than " .. rightItem:getName()) end
         return leftItem
     else
         -- if ingredients same age, prefer smaller "leftover" stacks
