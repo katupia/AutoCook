@@ -1,0 +1,5 @@
+ContextMenu_EN = {
+    ContextMenu_AutoCook_From_Category = "Auto Cook %1",
+    ContextMenu_AutoCook_Tooltip = "Verwende %1 geeignete Zutaten in der Nähe, um ein %2 gemäß deiner konfigurierten Ernährungsweise zuzubereiten.",
+    ContextMenu_AutoCook_Tooltip_No_Mats = "Keine geeigneten Zutaten in der Nähe ..."
+}
